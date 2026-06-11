@@ -1,3 +1,3 @@
 # rockbox 🛸
 
-Custom Linux Process Sandbox Container (potentially for an AI agent)
+Custom Linux Process Container (potentially for an AI agent)
