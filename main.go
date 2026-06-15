@@ -32,9 +32,9 @@ func runParent(){
 	cmd.Stderr = os.Stderr
 	cmd.Env = append(os.Environ(), "ROLE=child")
 
-	// set clone flag for child's process new namespace
+	// set clone flag for child's process namespace (UTS, PID< and Mount)
 	cmd.SysProcAttr = &syscall.SysProcAttr{
-		Cloneflags: syscall.CLONE_NEWUTS,
+		Cloneflags: syscall.CLONE_NEWUTS | syscall.CLONE_NEWPID | syscall.CLONE_NEWNS,
 	}
 
 	if err := cmd.Run(); err != nil {
@@ -48,18 +48,38 @@ func runParent(){
 }
 
 func runChild() {
-    fmt.Printf("[child]  hostname before change: %s\n", getHostname())
-    fmt.Printf("[child]  PID: %d\n", os.Getpid())
 
-    // syscall.Sethostname changes the hostname in THIS process's
-    // UTS namespace only. The parent's namespace is untouched.
+    fmt.Printf("[child]  pid inside namespace: %d\n", os.Getpid())
+    fmt.Printf("[child]  hostname before change: %s\n", getHostname())
+
     if err := syscall.Sethostname([]byte("my-container")); err != nil {
         fmt.Fprintf(os.Stderr, "[child] sethostname failed: %v\n", err)
         os.Exit(1)
     }
-
     fmt.Printf("[child]  hostname after change:  %s\n", getHostname())
+
+    // Break mount propagation BEFORE mounting anything,
+    // so changes stay local to this mount namespace.
+    if err := syscall.Mount("", "/", "", syscall.MS_PRIVATE|syscall.MS_REC, ""); err != nil {
+        fmt.Fprintf(os.Stderr, "[child] mount private failed: %v\n", err)
+        os.Exit(1)
+    }
+
+    // Mount a procfs instance bound to THIS PID namespace.
+    if err := syscall.Mount("proc", "/proc", "proc",
+        uintptr(syscall.MS_NOSUID|syscall.MS_NOEXEC|syscall.MS_NODEV), ""); err != nil {
+        fmt.Fprintf(os.Stderr, "[child] mount /proc failed: %v\n", err)
+        os.Exit(1)
+    }
+    defer syscall.Unmount("/proc", 0)
+
+    fmt.Println("[child]  running `ps aux`:")
+    psCmd := exec.Command("ps", "aux")
+    psCmd.Stdout = os.Stdout
+    psCmd.Stderr = os.Stderr
+    psCmd.Run()
 }
+
 
 func getHostname() string{
 	h, err := os.Hostname()
