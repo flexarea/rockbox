@@ -44,10 +44,12 @@ func runParent(){
 
 	// Prove that the host's hostname is untouched.
 	fmt.Printf("[parent] hostname after child exits: %s\n", getHostname())
+	fmt.Printf("[parent]  PID: %d\n", os.Getpid())
 }
 
 func runChild() {
     fmt.Printf("[child]  hostname before change: %s\n", getHostname())
+    fmt.Printf("[child]  PID: %d\n", os.Getpid())
 
     // syscall.Sethostname changes the hostname in THIS process's
     // UTS namespace only. The parent's namespace is untouched.
