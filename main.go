@@ -11,16 +11,13 @@ func main() {
 	// check roles
 	switch os.Getenv("ROLE"){
 	case "child":
-		//do something
 		runChild()
 	default:
 		runParent()
-		//call parent
 	}
 }
 
-func runParent(){
-	fmt.Printf("[parent] my hostname: %s\n", getHostname())
+func runParent(){ fmt.Printf("[parent] my hostname: %s\n", getHostname())
 	fmt.Println("[parent] spawning child in new UTS namespace...")
 
 	// configure Cmd struct
@@ -65,7 +62,7 @@ func runChild() {
         os.Exit(1)
     }
 
-    // Mount a procfs instance bound to THIS PID namespace.
+    // Mount procfs instance bound to THIS PID namespace.
     if err := syscall.Mount("proc", "/proc", "proc",
         uintptr(syscall.MS_NOSUID|syscall.MS_NOEXEC|syscall.MS_NODEV), ""); err != nil {
         fmt.Fprintf(os.Stderr, "[child] mount /proc failed: %v\n", err)
