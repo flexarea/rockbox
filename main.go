@@ -68,6 +68,7 @@ func runChild() {
         fmt.Fprintf(os.Stderr, "[child] mount /proc failed: %v\n", err)
         os.Exit(1)
     }
+
     defer syscall.Unmount("/proc", 0)
 
     fmt.Println("[child]  running `ps aux`:")
