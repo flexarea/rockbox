@@ -53,6 +53,7 @@ func runChild() {
         fmt.Fprintf(os.Stderr, "[child] sethostname failed: %v\n", err)
         os.Exit(1)
     }
+
     fmt.Printf("[child]  hostname after change:  %s\n", getHostname())
 
     // Break mount propagation BEFORE mounting anything,
