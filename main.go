@@ -97,7 +97,6 @@ func runChild() {
     }
 
     // Detach the old root — MNT_DETACH means "unmount even if busy,
-    // once all existing references are closed."
     if err := syscall.Unmount("/.old_root", syscall.MNT_DETACH); err != nil {
         fmt.Fprintf(os.Stderr, "[child] unmount old root failed: %v\n", err)
         os.Exit(1)
@@ -108,18 +107,20 @@ func runChild() {
         os.Exit(1)
     }
 
-    // NOW mount procfs — we're inside the new root, so this lands
-    // on Alpine's /proc, bound to our PID namespace.
     if err := syscall.Mount("proc", "/proc", "proc",
         uintptr(syscall.MS_NOSUID|syscall.MS_NOEXEC|syscall.MS_NODEV), ""); err != nil {
         fmt.Fprintf(os.Stderr, "[child] mount /proc failed: %v\n", err)
         os.Exit(1)
     }
 
-    // Replace this process with a shell — execve, not fork+exec.
-    // argv[0] is the program name by convention.
-    if err := syscall.Exec("/bin/sh", []string{"sh"}, os.Environ()); err != nil {
-        fmt.Fprintf(os.Stderr, "[child] exec /bin/sh failed: %v\n", err)
+    err := syscall.Exec("/bin/sh", []string{"sh"}, []string{
+    "PATH=/bin:/sbin:/usr/bin:/usr/sbin",
+    "HOME=/root",
+    "TERM=xterm",
+    })
+
+    if err != nil {
+	fmt.Fprintf(os.Stderr, "[child] exec /bin/sh failed: %v\n", err)
         os.Exit(1)
     }
 }
