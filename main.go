@@ -74,16 +74,33 @@ func runChild() {
 
     /*
     TODO: bind mount rootfs onto itself
-
+    */
     if err := syscall.Mount("rootfs", "rootfs", "", syscall.MS_PRIVATE|syscall.MS_REC, ""); err != nil {
         fmt.Fprintf(os.Stderr, "[child] mount private failed: %v\n", err)
         os.Exit(1)
     }
-    */
+
+    os.MkdirAll(rootfs+"/.old_root")
 
     /*
     TODO: chdir into rootfs & call pivot_rootf
     */
+
+    if err := syscall.Chdir("./rootfs/"); err != nil {
+        fmt.Fprintf(os.Stderr, "[child] chdir failed: %v\n", err)
+	os.Exit(1)
+    }
+
+    /*pivot root*/
+
+    if err := syscall.PivotRoot(".", ".old_root"); err != nil {
+        fmt.Fprintf(os.Stderr, "[child] Pivot root failed: %v\n", err)
+	os.Exit(1)
+    }
+
+    syscall.Unmount("/.old_root", syscall.MNT_DETACH)
+    os.remove("/.old_root")
+
 
     fmt.Println("[child]  running `ps aux`:")
     psCmd := exec.Command("ps", "aux")
