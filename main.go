@@ -11,7 +11,7 @@ var rootfs = "/home/entuyenabo/projects/rockbox/rootfs"
 
 func main() {
 	// check roles
-	switch os.Getenv("ROLE"){
+	switch os.Getenv("ROLE") {
 	case "child":
 		runChild()
 	default:
@@ -19,7 +19,9 @@ func main() {
 	}
 }
 
-func runParent(){ fmt.Printf("[parent] my hostname: %s\n", getHostname())
+func runParent() {
+
+	fmt.Printf("[parent] my hostname: %s\n", getHostname())
 	fmt.Println("[parent] spawning child in new UTS namespace...")
 
 	// configure Cmd struct
@@ -46,90 +48,88 @@ func runParent(){ fmt.Printf("[parent] my hostname: %s\n", getHostname())
 	fmt.Printf("[parent]  PID: %d\n", os.Getpid())
 }
 
-
 func runChild() {
-    fmt.Printf("[child]  pid inside namespace: %d\n", os.Getpid())
-    fmt.Printf("[child]  hostname before change: %s\n", getHostname())
+	fmt.Printf("[child]  pid inside namespace: %d\n", os.Getpid())
+	fmt.Printf("[child]  hostname before change: %s\n", getHostname())
 
-    if err := syscall.Sethostname([]byte("my-container")); err != nil {
-        fmt.Fprintf(os.Stderr, "[child] sethostname failed: %v\n", err)
-        os.Exit(1)
-    }
-    fmt.Printf("[child]  hostname after change:  %s\n", getHostname())
+	if err := syscall.Sethostname([]byte("my-container")); err != nil {
+		fmt.Fprintf(os.Stderr, "[child] sethostname failed: %v\n", err)
+		os.Exit(1)
+	}
+	fmt.Printf("[child]  hostname after change:  %s\n", getHostname())
 
-    // Break mount propagation before doing anything else.
-    if err := syscall.Mount("", "/", "", syscall.MS_PRIVATE|syscall.MS_REC, ""); err != nil {
-        fmt.Fprintf(os.Stderr, "[child] mount private failed: %v\n", err)
-        os.Exit(1)
-    }
+	// Break mount propagation before doing anything else.
+	if err := syscall.Mount("", "/", "", syscall.MS_PRIVATE|syscall.MS_REC, ""); err != nil {
+		fmt.Fprintf(os.Stderr, "[child] mount private failed: %v\n", err)
+		os.Exit(1)
+	}
 
-    // Bind-mount rootfs onto itself to make it a valid mount point
-    // for pivot_root — MS_BIND creates the bind mount, MS_REC applies
-    // it recursively so any mounts inside rootfs are also bound.
-    if err := syscall.Mount(rootfs, rootfs, "", syscall.MS_BIND|syscall.MS_REC, ""); err != nil {
-        fmt.Fprintf(os.Stderr, "[child] bind mount rootfs failed: %v\n", err)
-        os.Exit(1)
-    }
+	// Bind-mount rootfs onto itself to make it a valid mount point
+	// for pivot_root — MS_BIND creates the bind mount, MS_REC applies
+	// it recursively so any mounts inside rootfs are also bound.
+	if err := syscall.Mount(rootfs, rootfs, "", syscall.MS_BIND|syscall.MS_REC, ""); err != nil {
+		fmt.Fprintf(os.Stderr, "[child] bind mount rootfs failed: %v\n", err)
+		os.Exit(1)
+	}
 
-    // Create the directory inside rootfs where the old root will land.
-    if err := os.MkdirAll(rootfs+"/.old_root", 0700); err != nil {
-        fmt.Fprintf(os.Stderr, "[child] mkdir .old_root failed: %v\n", err)
-        os.Exit(1)
-    }
+	// Create the directory inside rootfs where the old root will land.
+	if err := os.MkdirAll(rootfs+"/.old_root", 0700); err != nil {
+		fmt.Fprintf(os.Stderr, "[child] mkdir .old_root failed: %v\n", err)
+		os.Exit(1)
+	}
 
-    // Step into the new root before calling pivot_root.
-    if err := syscall.Chdir(rootfs); err != nil {
-        fmt.Fprintf(os.Stderr, "[child] chdir into rootfs failed: %v\n", err)
-        os.Exit(1)
-    }
+	// Step into the new root before calling pivot_root.
+	if err := syscall.Chdir(rootfs); err != nil {
+		fmt.Fprintf(os.Stderr, "[child] chdir into rootfs failed: %v\n", err)
+		os.Exit(1)
+	}
 
-    // Swap the root — current dir (.) becomes new /, old root lands at .old_root.
-    if err := syscall.PivotRoot(".", ".old_root"); err != nil {
-        fmt.Fprintf(os.Stderr, "[child] pivot_root failed: %v\n", err)
-        os.Exit(1)
-    }
+	// Swap the root — current dir (.) becomes new /, old root lands at .old_root.
+	if err := syscall.PivotRoot(".", ".old_root"); err != nil {
+		fmt.Fprintf(os.Stderr, "[child] pivot_root failed: %v\n", err)
+		os.Exit(1)
+	}
 
-    // Reset cwd to / inside the new root — without this the cwd
-    // is a dangling reference into the old filesystem.
-    if err := syscall.Chdir("/"); err != nil {
-        fmt.Fprintf(os.Stderr, "[child] chdir / failed: %v\n", err)
-        os.Exit(1)
-    }
+	// Reset cwd to / inside the new root — without this the cwd
+	// is a dangling reference into the old filesystem.
+	if err := syscall.Chdir("/"); err != nil {
+		fmt.Fprintf(os.Stderr, "[child] chdir / failed: %v\n", err)
+		os.Exit(1)
+	}
 
-    // Detach the old root — MNT_DETACH means "unmount even if busy,
-    if err := syscall.Unmount("/.old_root", syscall.MNT_DETACH); err != nil {
-        fmt.Fprintf(os.Stderr, "[child] unmount old root failed: %v\n", err)
-        os.Exit(1)
-    }
+	// Detach the old root — MNT_DETACH means "unmount even if busy,
+	if err := syscall.Unmount("/.old_root", syscall.MNT_DETACH); err != nil {
+		fmt.Fprintf(os.Stderr, "[child] unmount old root failed: %v\n", err)
+		os.Exit(1)
+	}
 
-    if err := os.Remove("/.old_root"); err != nil {
-        fmt.Fprintf(os.Stderr, "[child] remove .old_root failed: %v\n", err)
-        os.Exit(1)
-    }
+	if err := os.Remove("/.old_root"); err != nil {
+		fmt.Fprintf(os.Stderr, "[child] remove .old_root failed: %v\n", err)
+		os.Exit(1)
+	}
 
-    if err := syscall.Mount("proc", "/proc", "proc",
-        uintptr(syscall.MS_NOSUID|syscall.MS_NOEXEC|syscall.MS_NODEV), ""); err != nil {
-        fmt.Fprintf(os.Stderr, "[child] mount /proc failed: %v\n", err)
-        os.Exit(1)
-    }
+	if err := syscall.Mount("proc", "/proc", "proc",
+		uintptr(syscall.MS_NOSUID|syscall.MS_NOEXEC|syscall.MS_NODEV), ""); err != nil {
+		fmt.Fprintf(os.Stderr, "[child] mount /proc failed: %v\n", err)
+		os.Exit(1)
+	}
 
-    err := syscall.Exec("/bin/sh", []string{"sh"}, []string{
-    "PATH=/bin:/sbin:/usr/bin:/usr/sbin",
-    "HOME=/root",
-    "TERM=xterm",
-    })
+	err := syscall.Exec("/bin/sh", []string{"sh"}, []string{
+		"PATH=/bin:/sbin:/usr/bin:/usr/sbin",
+		"HOME=/root",
+		"TERM=xterm",
+	})
 
-    if err != nil {
-	fmt.Fprintf(os.Stderr, "[child] exec /bin/sh failed: %v\n", err)
-        os.Exit(1)
-    }
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "[child] exec /bin/sh failed: %v\n", err)
+		os.Exit(1)
+	}
 }
 
-
-func getHostname() string{
+func getHostname() string {
 	h, err := os.Hostname()
 
-	if err != nil{
+	if err != nil {
 		return "<error>"
 	}
 	return h
